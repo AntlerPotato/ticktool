@@ -132,12 +132,21 @@
             -webkit-tap-highlight-color: transparent;
         }
 
+        /* 七段数码管字体：基于 DSEG7 Classic Bold v0.46（© keshikan，SIL OFL 1.1，保留字体名 "DSEG"）
+           只保留 0-9、冒号和空格，并去掉 "7" 左上的竖段；按 OFL 要求改名为 Ticktool Seg7，许可证全文在字体 name 表中 */
+        @font-face {
+            font-family: 'Ticktool Seg7';
+            src: url('data:font/woff2;base64,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') format('woff2');
+            font-weight: 700;
+            font-style: normal;
+            font-display: block;
+        }
+
         .timer-font {
-            font-family: 'Roboto Mono', ui-monospace, Menlo, Consolas, monospace;
+            font-family: 'Ticktool Seg7', ui-monospace, Menlo, Consolas, monospace;
             font-weight: 700;
             font-variant-numeric: tabular-nums;
             line-height: 1;
-            letter-spacing: -0.02em;
         }
 
         /* 计时数字：随卡片宽度线性缩放，手动大小通过内联样式覆盖 */
@@ -145,8 +154,8 @@
             container-type: inline-size;
         }
         #timerDisplay {
-            font-size: 13vw;
-            font-size: min(18cqi, 176px);
+            font-size: 12vw;
+            font-size: min(17cqi, 168px);
         }
 
         /* 统一的键盘焦点样式 */
@@ -487,7 +496,7 @@
 
     <!-- 主界面 -->
     <div id="appShell" class="min-h-[100dvh] flex p-3 sm:items-center sm:justify-center sm:px-6 sm:py-10">
-        <main class="w-full max-w-[960px] min-h-[calc(100dvh-24px)] sm:min-h-0 flex flex-col bg-card border border-line rounded-[20px] sm:rounded-3xl sm:shadow-[0_24px_48px_-24px_rgba(43,42,39,0.28)] overflow-hidden transition-colors duration-500">
+        <main class="w-full max-w-[1080px] min-h-[calc(100dvh-24px)] sm:min-h-[min(100dvh_-_80px,640px,60vw)] flex flex-col bg-card border border-line rounded-[20px] sm:rounded-3xl sm:shadow-[0_24px_48px_-24px_rgba(43,42,39,0.28)] overflow-hidden transition-colors duration-500">
 
             <!-- 顶部标题栏 -->
             <header class="flex items-center justify-between gap-3 sm:gap-4 bg-bar text-bar-ink py-1.5 pl-[18px] pr-1.5 sm:py-2 sm:pl-6 sm:pr-2.5">
@@ -525,7 +534,7 @@
                 </div>
 
                 <!-- 计时显示：运行中、暂停、正计时 -->
-                <section id="displayView" aria-label="计时" class="timer-stage w-full flex flex-col items-center justify-center gap-6 max-sm:flex-1" hidden>
+                <section id="displayView" aria-label="计时" class="timer-stage w-full flex flex-col items-center justify-center gap-6 flex-1" hidden>
                     <div id="timerDisplay" role="timer" class="timer-font text-ink whitespace-nowrap select-none">00:00:00</div>
                     <div id="progressBlock" class="w-full max-w-[720px] flex flex-col gap-2.5">
                         <div id="progressBar" role="progressbar" aria-label="剩余时间" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" class="progress-track h-1.5 rounded-full overflow-hidden">
@@ -538,21 +547,21 @@
                 </section>
 
                 <!-- 倒计时设定：就绪时直接在这里输入时长 -->
-                <section id="setupView" aria-label="设定倒计时" class="w-full flex flex-col gap-7 sm:items-center sm:gap-8 max-sm:flex-1">
+                <section id="setupView" aria-label="设定倒计时" class="w-full flex flex-col gap-7 sm:items-center sm:justify-center sm:gap-8 flex-1">
                     <fieldset class="flex items-start justify-center gap-1.5 sm:gap-3">
                         <legend class="sr-only">倒计时时长</legend>
                         <label class="flex flex-col items-center gap-2">
-                            <input id="hoursInput" type="text" inputmode="numeric" maxlength="2" autocomplete="off" value="00" aria-label="小时" class="time-field timer-font w-[84px] h-[76px] sm:w-[112px] sm:h-[100px] rounded-[14px] text-center text-[42px] sm:text-[56px]">
+                            <input id="hoursInput" type="text" inputmode="numeric" maxlength="2" autocomplete="off" value="00" aria-label="小时" class="time-field timer-font w-[84px] h-[76px] sm:w-[112px] sm:h-[100px] rounded-[14px] text-center text-[40px] sm:text-[52px]">
                             <span class="text-xs text-muted">时</span>
                         </label>
-                        <span aria-hidden="true" class="timer-font text-muted text-4xl leading-[76px] sm:text-5xl sm:leading-[100px]">:</span>
+                        <span aria-hidden="true" class="timer-font text-muted text-[34px] leading-[76px] sm:text-[44px] sm:leading-[100px]">:</span>
                         <label class="flex flex-col items-center gap-2">
-                            <input id="minutesInput" type="text" inputmode="numeric" maxlength="2" autocomplete="off" value="25" aria-label="分钟" class="time-field timer-font w-[84px] h-[76px] sm:w-[112px] sm:h-[100px] rounded-[14px] text-center text-[42px] sm:text-[56px]">
+                            <input id="minutesInput" type="text" inputmode="numeric" maxlength="2" autocomplete="off" value="25" aria-label="分钟" class="time-field timer-font w-[84px] h-[76px] sm:w-[112px] sm:h-[100px] rounded-[14px] text-center text-[40px] sm:text-[52px]">
                             <span class="text-xs text-muted">分</span>
                         </label>
-                        <span aria-hidden="true" class="timer-font text-muted text-4xl leading-[76px] sm:text-5xl sm:leading-[100px]">:</span>
+                        <span aria-hidden="true" class="timer-font text-muted text-[34px] leading-[76px] sm:text-[44px] sm:leading-[100px]">:</span>
                         <label class="flex flex-col items-center gap-2">
-                            <input id="secondsInput" type="text" inputmode="numeric" maxlength="2" autocomplete="off" value="00" aria-label="秒" class="time-field timer-font w-[84px] h-[76px] sm:w-[112px] sm:h-[100px] rounded-[14px] text-center text-[42px] sm:text-[56px]">
+                            <input id="secondsInput" type="text" inputmode="numeric" maxlength="2" autocomplete="off" value="00" aria-label="秒" class="time-field timer-font w-[84px] h-[76px] sm:w-[112px] sm:h-[100px] rounded-[14px] text-center text-[40px] sm:text-[52px]">
                             <span class="text-xs text-muted">秒</span>
                         </label>
                     </fieldset>
@@ -1492,23 +1501,41 @@
         const isOverlayOpen = () => settingsSheet.classList.contains('open') || finishScreen.classList.contains('open');
         const isTyping = (el) => el.matches('input:not([type="radio"]):not([type="checkbox"]), select, textarea');
 
-        document.addEventListener('keydown', (e) => {
+        // 优先按输入的字符识别，兼容非 QWERTY 键盘布局；输入法拦截时 key 为 "Process"，退回按物理键位识别
+        function shortcutKey(e) {
+            const key = e.key || '';
+            const code = e.code || '';
+            if (code === 'Space' || key === ' ') return 'space';
+            if (key.length === 1) return key.toLowerCase();
+            return /^Key[A-Z]$/.test(code) ? code.slice(3).toLowerCase() : '';
+        }
+
+        // 在 window 捕获阶段监听，先于页面上其他按键处理（例如浏览器扩展）拿到事件
+        window.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 if (finishScreen.classList.contains('open')) dismissFinish();
                 else closeSheet();
                 return;
             }
-            if (isOverlayOpen() || e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return;
+            if (e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return;
+            const key = shortcutKey(e);
 
-            if (e.code === 'Space') {
+            // 时间到的全屏提醒里，R 与 "关闭提醒" 相同：停止提示音并重置
+            if (finishScreen.classList.contains('open')) {
+                if (key === 'r' && !e.repeat) dismissFinish();
+                return;
+            }
+            if (isOverlayOpen()) return;
+
+            if (key === 'space') {
                 e.preventDefault();
                 if (!e.repeat) toggleTimer();
-            } else if (e.code === 'KeyR' && !e.repeat) {
+            } else if (key === 'r' && !e.repeat) {
                 resetTimer();
-            } else if (e.code === 'KeyF' && !e.repeat) {
+            } else if (key === 'f' && !e.repeat) {
                 toggleFullscreen();
             }
-        });
+        }, true);
         // 焦点在按钮上时，空格松开会再触发一次点击，这里拦截
         document.addEventListener('keyup', (e) => {
             if (e.code === 'Space' && !isOverlayOpen() && !isTyping(e.target)) e.preventDefault();
