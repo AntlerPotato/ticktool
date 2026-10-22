@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="eye-care">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>计时器</title>
+    <script>
+        // 尽早应用已保存的主题，避免刷新时闪烁
+        try {
+            const saved = JSON.parse(localStorage.getItem('ticktool:settings'));
+            if (saved && saved.settings && ['light', 'eye-care', 'dark'].includes(saved.settings.theme)) {
+                document.documentElement.dataset.theme = saved.settings.theme;
+            }
+        } catch (e) { /* 存储不可用时使用默认主题 */ }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        // 颜色全部指向 CSS 变量，切换主题只需修改 data-theme
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        page: 'var(--page)',
+                        card: 'var(--card)',
+                        sunk: 'var(--sunk)',
+                        line: 'var(--line)',
+                        ink: 'var(--text)',
+                        muted: 'var(--muted)',
+                        bar: 'var(--bar)',
+                        'bar-ink': 'var(--bar-text)',
+                        pill: 'var(--pill)',
+                        accent: 'var(--accent)',
+                        'accent-deep': 'var(--accent-deep)',
+                        'soft-ink': 'var(--soft-text)',
+                        link: 'var(--link)'
+                    },
+                    fontFamily: {
+                        sans: ['"Noto Sans SC"', '-apple-system', 'BlinkMacSystemFont', '"PingFang SC"', '"Microsoft YaHei"', 'sans-serif'],
+                        mono: ['"Roboto Mono"', 'ui-monospace', 'Menlo', 'Consolas', 'monospace']
+                    }
+                }
+            }
+        };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=Roboto+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        /* CSS 变量：三套主题，明亮为基础值 */
+        :root {
+            --page: #F3F4F6;
+            --card: #FFFFFF;
+            --sunk: #F1F2F4;
+            --line: #E5E7EB;
+            --text: #111827;
+            --muted: #6B7280;
+            --bar: #111827;
+            --bar-text: #FFFFFF;
+            --pill: rgba(255, 255, 255, 0.14);
+            --track: #E5E7EB;
+            --fill: #3B82F6;
+            --strong: #111827;
+            --on-strong: #FFFFFF;
+            --accent: #2563EB;
+            --on-accent: #FFFFFF;
+            --accent-deep: #1D4ED8;
+            --soft: #DBEAFE;
+            --soft-text: #1D4ED8;
+            --link: #1D4ED8;
+            --switch-off: #D1D5DB;
+            color-scheme: light;
+        }
+
+        /* 护眼模式 (默认) */
+        [data-theme="eye-care"] {
+            --page: #F5F2EA;
+            --card: #FBFAF6;
+            --sunk: #EFE9DF;
+            --line: #E3D8CB;
+            --text: #2B2A27;
+            --muted: #6F6A62;
+            --bar: #B85C3E;
+            --bar-text: #FFFFFF;
+            --pill: rgba(0, 0, 0, 0.22);
+            --track: #E9E1D6;
+            --fill: #D97757;
+            --strong: #2B2A27;
+            --on-strong: #FFFFFF;
+            --accent: #B85C3E;
+            --on-accent: #FFFFFF;
+            --accent-deep: #8E4529;
+            --soft: #F5E4DB;
+            --soft-text: #8E4529;
+            --link: #8E4529;
+            --switch-off: #D9CFC2;
+        }
+
+        /* 暗黑模式 */
+        [data-theme="dark"] {
+            --page: #0B1120;
+            --card: #1E293B;
+            --sunk: #0F172A;
+            --line: #334155;
+            --text: #E2E8F0;
+            --muted: #94A3B8;
+            --bar: #0F172A;
+            --bar-text: #E2E8F0;
+            --pill: rgba(255, 255, 255, 0.10);
+            --track: #334155;
+            --fill: #818CF8;
+            --strong: #E2E8F0;
+            --on-strong: #0F172A;
+            --accent: #4F46E5;
+            --on-accent: #FFFFFF;
+            --accent-deep: #4338CA;
+            --soft: #312E81;
+            --soft-text: #C7D2FE;
+            --link: #A5B4FC;
+            --switch-off: #475569;
+            color-scheme: dark;
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+
+        body {
+            overscroll-behavior: none;
+            background-color: var(--page);
+            color: var(--text);
+            transition: background-color 0.5s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .timer-font {
+            font-family: 'Roboto Mono', ui-monospace, Menlo, Consolas, monospace;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            letter-spacing: -0.02em;
+        }
+
+        /* 计时数字：随卡片宽度线性缩放，手动大小通过内联样式覆盖 */
+        .timer-stage {
+            container-type: inline-size;
+        }
+        #timerDisplay {
+            font-size: 13vw;
+            font-size: min(18cqi, 176px);
+        }
+
+        /* 统一的键盘焦点样式 */
+        button:focus-visible,
+        select:focus-visible,
+        .range:focus-visible {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+        .on-bar:focus-visible {
+            outline-color: var(--bar-text);
+            outline-offset: -4px;
+        }
+        .finish button:focus-visible {
+            outline-color: #FFFFFF;
+            outline-offset: 3px;
+        }
+
+        /* 顶栏状态标签 */
+        .status-dot {
+            display: none;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+        }
+        #statusBadge[data-state="running"] .status-dot {
+            display: block;
+            background: #4ADE80;
+            animation: pulse-dot 1.6s ease-in-out infinite;
+        }
+        #statusBadge[data-state="paused"] .status-dot {
+            display: block;
+            background: #FBBF24;
+        }
+        #statusBadge[data-state="finished"] .status-dot {
+            display: block;
+            background: #F87171;
+        }
+        @keyframes pulse-dot {
+            50% { opacity: 0.35; }
+        }
+
+        /* 分段选择器 (模式、数字大小) */
+        .seg-face {
+            color: var(--muted);
+            font-weight: 500;
+            transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .seg-input:checked + .seg-face {
+            background: var(--card);
+            color: var(--text);
+            font-weight: 700;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+        }
+        .seg-input:focus-visible + .seg-face,
+        .opt-input:focus-visible + .theme-face {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+
+        /* 主题卡片 */
+        .theme-face {
+            border: 1px solid var(--line);
+            color: var(--muted);
+            font-weight: 500;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .opt-input:checked + .theme-face {
+            border-color: var(--accent);
+            box-shadow: inset 0 0 0 1px var(--accent);
+            color: var(--text);
+            font-weight: 700;
+        }
+
+        /* 开关 */
+        .switch {
+            position: relative;
+            display: block;
+            flex: none;
+            width: 44px;
+            height: 26px;
+            border-radius: 999px;
+            background: var(--switch-off);
+            transition: background-color 0.2s ease;
+        }
+        .switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #FFFFFF;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+            transition: transform 0.2s ease;
+        }
+        .opt-input:checked + .switch {
+            background: var(--accent);
+        }
+        .opt-input:checked + .switch::after {
+            transform: translateX(18px);
+        }
+        .opt-input:focus-visible + .switch {
+            outline: 2px solid var(--accent);
+            outline-offset: 2px;
+        }
+        .opt-input:disabled + .switch {
+            opacity: 0.5;
+        }
+
+        /* 主按钮：就绪/暂停时为强调色，运行时为深色 */
+        .btn-main[data-variant="accent"] {
+            background: var(--accent);
+            color: var(--on-accent);
+        }
+        .btn-main[data-variant="strong"] {
+            background: var(--strong);
+            color: var(--on-strong);
+        }
+
+        /* 进度条 */
+        .progress-track {
+            background: var(--track);
+        }
+        .progress-fill {
+            background: var(--fill);
+            transition: width 0.3s ease;
+        }
+
+        /* 倒计时时长输入 */
+        .time-field {
+            background: var(--sunk);
+            border: 1px solid var(--line);
+            color: var(--text);
+            transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .time-field:focus {
+            outline: none;
+            background: var(--card);
+            border-color: var(--accent);
+            box-shadow: inset 0 0 0 1px var(--accent), 0 0 0 4px var(--soft);
+        }
+
+        /* 常用时长 (加上 button 提高优先级，避免被 Tailwind 的按钮重置覆盖) */
+        button.preset {
+            border: 1px solid var(--line);
+            background: var(--card);
+            color: var(--text);
+            font-weight: 500;
+            transition: background-color 0.2s ease, border-color 0.2s ease;
+        }
+        button.preset:hover {
+            border-color: var(--accent);
+        }
+        button.preset[aria-pressed="true"] {
+            border-color: var(--accent);
+            background: var(--soft);
+            color: var(--soft-text);
+            font-weight: 700;
+        }
+
+        .kbd {
+            font-family: inherit;
+            font-size: 11px;
+            padding: 2px 7px;
+            border: 1px solid var(--line);
+            border-bottom-width: 2px;
+            border-radius: 6px;
+            background: var(--card);
+            color: var(--text);
+        }
+
+        /* 设置面板内的表单控件 */
+        .setting-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            min-height: 56px;
+            padding: 8px 16px;
+        }
+        .select-field {
+            height: 36px;
+            padding: 0 10px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--sunk);
+            color: var(--text);
+            font: inherit;
+            font-size: 14px;
+        }
+        .limit-field {
+            width: 100%;
+            height: 44px;
+            text-align: center;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--sunk);
+            color: var(--text);
+            font-family: 'Roboto Mono', ui-monospace, monospace;
+            font-size: 18px;
+        }
+        .limit-field:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        .limit-fields:disabled {
+            opacity: 0.55;
+        }
+
+        /* 滑块样式 */
+        .range {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            height: 24px;
+        }
+        .range::-webkit-slider-runnable-track {
+            height: 4px;
+            border-radius: 2px;
+            background: var(--switch-off);
+        }
+        .range::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            margin-top: -8px;
+            border-radius: 50%;
+            background: var(--accent);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+        }
+        .range::-moz-range-track {
+            height: 4px;
+            border-radius: 2px;
+            background: var(--switch-off);
+        }
+        .range::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border: none;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+        }
+
+        /* 设置面板：手机为底部弹出，宽屏为右侧浮层 */
+        .sheet-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 40;
+            background: rgba(15, 12, 8, 0.5);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+        }
+        .sheet-overlay.open {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.3s ease;
+        }
+        .sheet {
+            position: fixed;
+            left: 0;
+            right: 0;
+            top: 56px;
+            bottom: 0;
+            z-index: 50;
+            display: flex;
+            flex-direction: column;
+            background: var(--page);
+            color: var(--text);
+            border-radius: 22px 22px 0 0;
+            box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.2);
+            transform: translateY(100%);
+            visibility: hidden;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 0.4s;
+        }
+        .sheet.open {
+            transform: none;
+            visibility: visible;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @media (min-width: 640px) {
+            .sheet {
+                left: auto;
+                top: 12px;
+                right: 12px;
+                bottom: 12px;
+                width: 400px;
+                border-radius: 22px;
+                box-shadow: -8px 0 32px rgba(0, 0, 0, 0.2);
+                transform: translateX(calc(100% + 24px));
+            }
+            .sheet-handle {
+                display: none;
+            }
+        }
+
+        /* 时间到：全屏提醒 */
+        .finish {
+            position: fixed;
+            inset: 0;
+            z-index: 60;
+            background: var(--accent);
+            color: #FFFFFF;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+        }
+        .finish.open {
+            opacity: 1;
+            visibility: visible;
+            transition: opacity 0.3s ease;
+        }
+        .finish.open .bell {
+            animation: bell-swing 1.4s ease-in-out infinite;
+            transform-origin: 50% 12%;
+        }
+        @keyframes bell-swing {
+            0%, 50%, 100% { transform: rotate(0); }
+            10% { transform: rotate(14deg); }
+            20% { transform: rotate(-12deg); }
+            30% { transform: rotate(8deg); }
+            40% { transform: rotate(-4deg); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation: none !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+    </style>
+</head>
+<body class="font-sans antialiased">
+
+    <!-- 主界面 -->
+    <div id="appShell" class="min-h-[100dvh] flex p-3 sm:items-center sm:justify-center sm:px-6 sm:py-10">
+        <main class="w-full max-w-[960px] min-h-[calc(100dvh-24px)] sm:min-h-0 flex flex-col bg-card border border-line rounded-[20px] sm:rounded-3xl sm:shadow-[0_24px_48px_-24px_rgba(43,42,39,0.28)] overflow-hidden transition-colors duration-500">
+
+            <!-- 顶部标题栏 -->
+            <header class="flex items-center justify-between gap-3 sm:gap-4 bg-bar text-bar-ink py-1.5 pl-[18px] pr-1.5 sm:py-2 sm:pl-6 sm:pr-2.5">
+                <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                    <svg aria-hidden="true" class="w-5 h-5 sm:w-[22px] sm:h-[22px] flex-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                    <h1 class="m-0 text-[17px] sm:text-lg font-bold tracking-[0.04em]">计时器</h1>
+                    <span id="statusBadge" data-state="ready" role="status" class="inline-flex items-center gap-1.5 px-2.5 py-[3px] sm:py-1 rounded-full bg-pill text-xs font-medium whitespace-nowrap">
+                        <span class="status-dot" aria-hidden="true"></span><span id="statusText">就绪</span>
+                    </span>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button id="fullscreenBtn" type="button" aria-label="全屏显示" class="on-bar hidden sm:inline-flex items-center justify-center w-11 h-11 rounded-xl hover:bg-white/10 transition-colors">
+                        <svg id="fsEnterIcon" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M15 4h5v5M4 15v5h5M20 15v5h-5"/></svg>
+                        <svg id="fsExitIcon" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg>
+                    </button>
+                    <button id="settingsBtn" type="button" aria-label="设置" aria-haspopup="dialog" aria-controls="settingsSheet" class="on-bar inline-flex items-center justify-center w-11 h-11 rounded-xl hover:bg-white/10 transition-colors">
+                        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- 主内容区域 -->
+            <div class="flex-1 flex flex-col gap-7 px-5 pt-6 pb-5 sm:items-center sm:gap-8 sm:px-12 sm:pt-8 sm:pb-9">
+
+                <!-- 模式切换 -->
+                <div role="radiogroup" aria-label="计时模式" class="grid grid-cols-2 gap-1 p-1 w-full sm:w-[280px] bg-sunk rounded-xl">
+                    <label class="relative cursor-pointer">
+                        <input type="radio" name="timerMode" value="countup" class="seg-input sr-only">
+                        <span class="seg-face flex items-center justify-center h-10 rounded-[9px] text-[15px]">正计时</span>
+                    </label>
+                    <label class="relative cursor-pointer">
+                        <input type="radio" name="timerMode" value="countdown" class="seg-input sr-only" checked>
+                        <span class="seg-face flex items-center justify-center h-10 rounded-[9px] text-[15px]">倒计时</span>
+                    </label>
+                </div>
+
+                <!-- 计时显示：运行中、暂停、正计时 -->
+                <section id="displayView" aria-label="计时" class="timer-stage w-full flex flex-col items-center justify-center gap-6 max-sm:flex-1" hidden>
+                    <div id="timerDisplay" role="timer" class="timer-font text-ink whitespace-nowrap select-none">00:00:00</div>
+                    <div id="progressBlock" class="w-full max-w-[720px] flex flex-col gap-2.5">
+                        <div id="progressBar" role="progressbar" aria-label="剩余时间" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100" class="progress-track h-1.5 rounded-full overflow-hidden">
+                            <div id="progressFill" class="progress-fill h-full rounded-full" style="width: 100%"></div>
+                        </div>
+                        <div class="flex justify-between gap-4 text-[13px] text-muted">
+                            <span id="progressLeft"></span><span id="progressRight"></span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 倒计时设定：就绪时直接在这里输入时长 -->
+                <section id="setupView" aria-label="设定倒计时" class="w-full flex flex-col gap-7 sm:items-center sm:gap-8 max-sm:flex-1">
+                    <fieldset class="flex items-start justify-center gap-1.5 sm:gap-3">
+                        <legend class="sr-only">倒计时时长</legend>
+                        <label class="flex flex-col items-center gap-2">
+                            <input id="hoursInput" type="text" inputmode="numeric" maxlength="2" autocomplete="off" value="00" aria-label="小时" class="time-field timer-font w-[84px] h-[76px] sm:w-[112px] sm:h-[100px] rounded-[14px] text-center text-[42px] sm:text-[56px]">
+                            <span class="text-xs text-muted">时</span>
+                        </label>
+                        <span aria-hidden="true" class="timer-font text-muted text-4xl leading-[76px] sm:text-5xl sm:leading-[100px]">:</span>
+                        <label class="flex flex-col items-center gap-2">
+                            <input id="minutesInput" type="text" inputmode="numeric" maxlength="2" autocomplete="off" value="25" aria-label="分钟" class="time-field timer-font w-[84px] h-[76px] sm:w-[112px] sm:h-[100px] rounded-[14px] text-center text-[42px] sm:text-[56px]">
+                            <span class="text-xs text-muted">分</span>
+                        </label>
+                        <span aria-hidden="true" class="timer-font text-muted text-4xl leading-[76px] sm:text-5xl sm:leading-[100px]">:</span>
+                        <label class="flex flex-col items-center gap-2">
+                            <input id="secondsInput" type="text" inputmode="numeric" maxlength="2" autocomplete="off" value="00" aria-label="秒" class="time-field timer-font w-[84px] h-[76px] sm:w-[112px] sm:h-[100px] rounded-[14px] text-center text-[42px] sm:text-[56px]">
+                            <span class="text-xs text-muted">秒</span>
+                        </label>
+                    </fieldset>
+                    <p id="setupHint" role="alert" class="-mt-3 text-center text-sm font-medium text-soft-ink" hidden>请先设定倒计时时长</p>
+
+                    <div role="group" aria-labelledby="presetsTitle" class="w-full sm:max-w-[720px] flex flex-col gap-3">
+                        <h2 id="presetsTitle" class="m-0 text-[13px] font-medium text-muted">常用时长</h2>
+                        <div class="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                            <button type="button" class="preset h-11 rounded-xl text-[15px]" data-minutes="1" aria-pressed="false">1 分钟</button>
+                            <button type="button" class="preset h-11 rounded-xl text-[15px]" data-minutes="3" aria-pressed="false">3 分钟</button>
+                            <button type="button" class="preset h-11 rounded-xl text-[15px]" data-minutes="5" aria-pressed="false">5 分钟</button>
+                            <button type="button" class="preset h-11 rounded-xl text-[15px]" data-minutes="10" aria-pressed="false">10 分钟</button>
+                            <button type="button" class="preset h-11 rounded-xl text-[15px]" data-minutes="25" aria-pressed="false">25 分钟</button>
+                            <button type="button" class="preset h-11 rounded-xl text-[15px]" data-minutes="45" aria-pressed="false">45 分钟</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- 按钮组 -->
+                <div class="w-full sm:max-w-[720px] grid grid-cols-2 gap-3 sm:gap-4">
+                    <!-- 开始/暂停 -->
+                    <button id="mainActionBtn" type="button" data-variant="accent" class="btn-main h-14 sm:h-[60px] flex items-center justify-center gap-2 sm:gap-2.5 rounded-[14px] text-lg font-bold transition hover:brightness-110 active:scale-[0.98]">
+                        <svg id="playIcon" aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M8 5.5v13l11-6.5z"/></svg>
+                        <svg id="pauseIcon" aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" hidden><path d="M9 6v12M15 6v12"/></svg>
+                        <span id="mainActionText">开始</span>
+                    </button>
+
+                    <!-- 重置 -->
+                    <button id="resetBtn" type="button" class="h-14 sm:h-[60px] flex items-center justify-center gap-2 sm:gap-2.5 rounded-[14px] border border-line text-ink text-lg font-bold transition-colors hover:bg-sunk active:scale-[0.98]">
+                        <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                        重置
+                    </button>
+                </div>
+
+                <!-- 快捷键提示 (宽屏) -->
+                <div class="hidden sm:flex flex-wrap justify-center gap-6 text-xs text-muted">
+                    <span class="inline-flex items-center gap-2"><kbd class="kbd">空格</kbd>开始 / 暂停</span>
+                    <span class="inline-flex items-center gap-2"><kbd class="kbd">R</kbd>重置</span>
+                    <span id="fullscreenHint" class="inline-flex items-center gap-2"><kbd class="kbd">F</kbd>全屏</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- 遮罩层 -->
+    <div id="sheetOverlay" class="sheet-overlay"></div>
+
+    <!-- 设置面板 -->
+    <section id="settingsSheet" class="sheet" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="sheet-handle self-center w-9 h-1 mt-2 rounded-full bg-line" aria-hidden="true"></div>
+        <div class="flex items-center justify-between py-1 pl-5 pr-2 sm:pt-3">
+            <h2 id="settingsTitle" class="m-0 text-lg font-bold">设置</h2>
+            <button id="closeSheetBtn" type="button" aria-label="关闭设置" class="inline-flex items-center justify-center w-11 h-11 rounded-xl text-ink hover:bg-sunk transition-colors">
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+            </button>
+        </div>
+
+        <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col gap-[22px] px-4 pt-1 pb-8">
+
+            <!-- 1. 外观 -->
+            <div class="flex flex-col gap-2">
+                <h3 class="m-0 ml-1 text-[13px] font-medium text-muted">外观</h3>
+                <div role="radiogroup" aria-label="主题" class="grid grid-cols-3 gap-2">
+                    <label class="relative cursor-pointer">
+                        <input type="radio" name="theme" value="eye-care" class="opt-input sr-only">
+                        <span class="theme-face flex flex-col items-center gap-2 py-3 px-2 rounded-[14px] bg-card text-sm">
+                            <span aria-hidden="true" class="w-7 h-7 rounded-full bg-[#FAF9F5] border-2 border-[#D97757]"></span>护眼
+                        </span>
+                    </label>
+                    <label class="relative cursor-pointer">
+                        <input type="radio" name="theme" value="light" class="opt-input sr-only">
+                        <span class="theme-face flex flex-col items-center gap-2 py-3 px-2 rounded-[14px] bg-card text-sm">
+                            <span aria-hidden="true" class="w-7 h-7 rounded-full bg-white border-2 border-[#D1D5DB]"></span>明亮
+                        </span>
+                    </label>
+                    <label class="relative cursor-pointer">
+                        <input type="radio" name="theme" value="dark" class="opt-input sr-only">
+                        <span class="theme-face flex flex-col items-center gap-2 py-3 px-2 rounded-[14px] bg-card text-sm">
+                            <span aria-hidden="true" class="w-7 h-7 rounded-full bg-[#1E293B] border-2 border-[#475569]"></span>暗黑
+                        </span>
+                    </label>
+                </div>
+                <div class="bg-card border border-line rounded-[14px] divide-y divide-line">
+                    <div class="setting-row pr-2">
+                        <span id="sizeLabel" class="text-[15px]">数字大小</span>
+                        <div role="radiogroup" aria-labelledby="sizeLabel" class="grid grid-cols-2 gap-0.5 p-[3px] w-[136px] bg-sunk rounded-[10px]">
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="sizeMode" value="auto" class="seg-input sr-only">
+                                <span class="seg-face flex items-center justify-center h-[34px] rounded-lg text-sm">自动</span>
+                            </label>
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="sizeMode" value="manual" class="seg-input sr-only">
+                                <span class="seg-face flex items-center justify-center h-[34px] rounded-lg text-sm">手动</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div id="sizeSliderRow" class="flex items-center gap-3 px-4 py-3" hidden>
+                        <input id="fontSizeSlider" type="range" min="40" max="300" step="4" value="120" aria-label="数字大小" class="range flex-1 cursor-pointer">
+                        <span id="fontSizeValue" class="w-14 text-right text-[13px] font-mono text-muted">120px</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. 声音 -->
+            <div class="flex flex-col gap-2">
+                <h3 class="m-0 ml-1 text-[13px] font-medium text-muted">声音</h3>
+                <div class="bg-card border border-line rounded-[14px] divide-y divide-line">
+                    <label class="setting-row relative cursor-pointer">
+                        <span class="text-[15px]">秒针滴答声</span>
+                        <input id="tickSoundToggle" type="checkbox" role="switch" class="opt-input sr-only">
+                        <span class="switch" aria-hidden="true"></span>
+                    </label>
+                    <div class="setting-row">
+                        <label for="tickTypeSelect" class="text-[15px]">滴答音色</label>
+                        <select id="tickTypeSelect" class="select-field">
+                            <option value="mech">机械声</option>
+                            <option value="elec">电子声</option>
+                        </select>
+                    </div>
+                    <div class="setting-row">
+                        <label for="alarmSoundSelect" class="text-[15px]">结束提示音</label>
+                        <div class="flex items-center gap-1">
+                            <button id="testAlarmBtn" type="button" aria-label="试听结束提示音" class="inline-flex items-center justify-center w-10 h-10 rounded-[10px] text-link hover:bg-sunk transition-colors">
+                                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+                            </button>
+                            <select id="alarmSoundSelect" class="select-field">
+                                <option value="bell">清脆铃声</option>
+                                <option value="radar">雷达</option>
+                                <option value="beep">简易蜂鸣</option>
+                            </select>
+                        </div>
+                    </div>
+                    <label class="setting-row relative cursor-pointer">
+                        <span class="text-[15px]">最后 5 秒倒数提示</span>
+                        <input id="preWarnToggle" type="checkbox" role="switch" class="opt-input sr-only">
+                        <span class="switch" aria-hidden="true"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 3. 提醒 -->
+            <div class="flex flex-col gap-2">
+                <h3 class="m-0 ml-1 text-[13px] font-medium text-muted">提醒</h3>
+                <div class="bg-card border border-line rounded-[14px] divide-y divide-line">
+                    <label class="setting-row min-h-[64px] py-2.5 relative cursor-pointer">
+                        <span class="flex flex-col gap-0.5">
+                            <span class="text-[15px]">结束时全屏提醒</span>
+                            <span class="text-xs text-muted">提示音持续响起，直到手动关闭</span>
+                        </span>
+                        <input id="popupToggle" type="checkbox" role="switch" class="opt-input sr-only">
+                        <span class="switch" aria-hidden="true"></span>
+                    </label>
+                    <label class="setting-row min-h-[64px] py-2.5 relative cursor-pointer">
+                        <span class="flex flex-col gap-0.5">
+                            <span class="text-[15px]">系统通知</span>
+                            <span id="notifyHint" class="text-xs text-muted">页面在后台时也能收到</span>
+                        </span>
+                        <input id="notifyToggle" type="checkbox" role="switch" class="opt-input sr-only">
+                        <span class="switch" aria-hidden="true"></span>
+                    </label>
+                    <label class="setting-row relative cursor-pointer">
+                        <span class="flex flex-col gap-0.5">
+                            <span class="text-[15px]">计时时保持屏幕常亮</span>
+                            <span id="keepAwakeHint" class="text-xs text-muted" hidden>当前浏览器不支持</span>
+                        </span>
+                        <input id="keepAwakeToggle" type="checkbox" role="switch" class="opt-input sr-only">
+                        <span class="switch" aria-hidden="true"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- 4. 正计时上限 -->
+            <div class="flex flex-col gap-2">
+                <h3 class="m-0 ml-1 text-[13px] font-medium text-muted">正计时</h3>
+                <div class="bg-card border border-line rounded-[14px] divide-y divide-line">
+                    <label class="setting-row relative cursor-pointer">
+                        <span class="text-[15px]">到达上限自动停止</span>
+                        <input id="limitToggle" type="checkbox" role="switch" class="opt-input sr-only">
+                        <span class="switch" aria-hidden="true"></span>
+                    </label>
+                    <fieldset id="limitFields" class="limit-fields grid grid-cols-3 gap-2 px-4 pt-3 pb-4 transition-opacity" disabled>
+                        <legend class="sr-only">上限时长</legend>
+                        <label class="flex flex-col items-center gap-1 text-xs text-muted">
+                            <input id="limitH" type="text" inputmode="numeric" maxlength="2" autocomplete="off" aria-label="上限小时" class="limit-field">时
+                        </label>
+                        <label class="flex flex-col items-center gap-1 text-xs text-muted">
+                            <input id="limitM" type="text" inputmode="numeric" maxlength="2" autocomplete="off" aria-label="上限分钟" class="limit-field">分
+                        </label>
+                        <label class="flex flex-col items-center gap-1 text-xs text-muted">
+                            <input id="limitS" type="text" inputmode="numeric" maxlength="2" autocomplete="off" aria-label="上限秒" class="limit-field">秒
+                        </label>
+                    </fieldset>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- 时间到 -->
+    <div id="finishScreen" class="finish" role="alertdialog" aria-modal="true" aria-labelledby="finishTitle" aria-describedby="finishDesc">
+        <div class="h-full max-w-[420px] mx-auto flex flex-col items-center px-6 pt-16 pb-8">
+            <span id="finishLabel" class="px-3 py-[5px] rounded-full bg-black/20 text-[13px] font-medium"></span>
+            <div class="flex-1 flex flex-col items-center justify-center gap-5">
+                <div aria-hidden="true" class="w-[88px] h-[88px] flex items-center justify-center rounded-full bg-white/[0.16] shadow-[0_0_0_16px_rgba(255,255,255,0.08)]">
+                    <svg class="bell" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+                </div>
+                <h2 id="finishTitle" class="mt-3 mb-0 text-[44px] font-bold tracking-[0.08em]">时间到</h2>
+                <div id="finishTime" class="timer-font text-[56px]">00:00:00</div>
+                <p id="finishDesc" class="m-0 text-[15px] text-center"><span id="finishAt"></span> · 已超出 <span id="overtime" class="font-mono font-bold">00:00</span></p>
+            </div>
+            <div class="w-full flex flex-col gap-3">
+                <button id="restartBtn" type="button" class="h-14 flex items-center justify-center gap-2 rounded-[14px] bg-white text-accent-deep text-lg font-bold active:scale-[0.98] transition">
+                    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
+                    再来一次
+                </button>
+                <button id="dismissBtn" type="button" class="h-14 rounded-[14px] border-[1.5px] border-white/[0.85] text-white text-lg font-bold hover:bg-white/10 active:scale-[0.98] transition">关闭提醒</button>
+                <p class="mt-1 mb-0 text-[13px] text-center">提示音会一直响，直到你关闭提醒</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 状态管理 ---
+        const STORAGE_KEY = 'ticktool:settings';
+        const THEMES = ['eye-care', 'light', 'dark'];
+        const MAX_SECONDS = 99 * 3600 + 59 * 60 + 59;
+        const DEFAULT_SETTINGS = {
+            theme: 'eye-care',
+            fontSize: 0,          // 0 表示自动，随卡片宽度缩放
+            tickSound: false,
+            tickType: 'mech',
+            alarmSound: 'bell',
+            preWarn: true,
+            popup: true,
+            notify: false,
+            keepAwake: true,
+            hasLimit: false,
+            limitSeconds: 45 * 60
+        };
+
+        const state = {
+            mode: 'countdown',
+            phase: 'ready',             // ready | running | paused | finished
+            countdownSeconds: 25 * 60,  // 倒计时设定时长
+            ms: 25 * 60 * 1000,         // 正计时为已用毫秒，倒计时为剩余毫秒
+            anchorTime: 0,              // 本段运行开始时的时间戳
+            anchorMs: 0,                // 本段运行开始时的 ms
+            lastSecond: null,
+            finishedAt: 0,
+            timerInterval: null,
+            finishTimeout: null,
+            settings: { ...DEFAULT_SETTINGS }
+        };
+
+        function loadSaved() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
+                if (!saved) return;
+                Object.keys(DEFAULT_SETTINGS).forEach(key => {
+                    if (saved.settings && typeof saved.settings[key] === typeof DEFAULT_SETTINGS[key]) {
+                        state.settings[key] = saved.settings[key];
+                    }
+                });
+                if (saved.mode === 'countup' || saved.mode === 'countdown') state.mode = saved.mode;
+                if (Number.isInteger(saved.countdownSeconds)) {
+                    state.countdownSeconds = Math.min(Math.max(saved.countdownSeconds, 0), MAX_SECONDS);
+                }
+            } catch (e) { /* 存储不可用时使用默认值 */ }
+        }
+
+        function save() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    settings: state.settings,
+                    mode: state.mode,
+                    countdownSeconds: state.countdownSeconds
+                }));
+            } catch (e) { /* 隐私模式等情况下忽略 */ }
+        }
+
+        loadSaved();
+
+        // --- 2. DOM 元素获取 ---
+        const appShell = document.getElementById('appShell');
+        const statusBadge = document.getElementById('statusBadge');
+        const statusText = document.getElementById('statusText');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const fullscreenHint = document.getElementById('fullscreenHint');
+        const settingsBtn = document.getElementById('settingsBtn');
+        const modeRadios = document.querySelectorAll('input[name="timerMode"]');
+
+        // 计时显示
+        const displayView = document.getElementById('displayView');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const progressBlock = document.getElementById('progressBlock');
+        const progressBar = document.getElementById('progressBar');
+        const progressFill = document.getElementById('progressFill');
+        const progressLeft = document.getElementById('progressLeft');
+        const progressRight = document.getElementById('progressRight');
+
+        // 倒计时设定
+        const setupView = document.getElementById('setupView');
+        const setupHint = document.getElementById('setupHint');
+        const timeInputs = { h: document.getElementById('hoursInput'), m: document.getElementById('minutesInput'), s: document.getElementById('secondsInput') };
+        const presetButtons = document.querySelectorAll('.preset');
+
+        // 按钮
+        const mainActionBtn = document.getElementById('mainActionBtn');
+        const mainActionText = document.getElementById('mainActionText');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // 设置面板
+        const sheetOverlay = document.getElementById('sheetOverlay');
+        const settingsSheet = document.getElementById('settingsSheet');
+        const closeSheetBtn = document.getElementById('closeSheetBtn');
+        const themeRadios = document.querySelectorAll('input[name="theme"]');
+        const sizeRadios = document.querySelectorAll('input[name="sizeMode"]');
+        const sizeSliderRow = document.getElementById('sizeSliderRow');
+        const fontSizeSlider = document.getElementById('fontSizeSlider');
+        const fontSizeValue = document.getElementById('fontSizeValue');
+        const notifyToggle = document.getElementById('notifyToggle');
+        const notifyHint = document.getElementById('notifyHint');
+        const keepAwakeToggle = document.getElementById('keepAwakeToggle');
+        const keepAwakeHint = document.getElementById('keepAwakeHint');
+        const limitToggle = document.getElementById('limitToggle');
+        const limitFields = document.getElementById('limitFields');
+        const limitInputs = { h: document.getElementById('limitH'), m: document.getElementById('limitM'), s: document.getElementById('limitS') };
+
+        // 时间到
+        const finishScreen = document.getElementById('finishScreen');
+        const finishLabel = document.getElementById('finishLabel');
+        const finishTime = document.getElementById('finishTime');
+        const finishAt = document.getElementById('finishAt');
+        const overtime = document.getElementById('overtime');
+        const restartBtn = document.getElementById('restartBtn');
+        const dismissBtn = document.getElementById('dismissBtn');
+
+        // --- 3. 核心音频逻辑 (Web Audio API) ---
+        let audioCtx = null;
+
+        // 首次用户操作时再创建，避免浏览器的自动播放限制
+        function getAudioCtx() {
+            if (!audioCtx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (!Ctx) return null;
+                audioCtx = new Ctx();
+            }
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            return audioCtx;
+        }
+
+        function playTick(type) {
+            const ctx = getAudioCtx();
+            if (!ctx) return;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            if (type === 'elec') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(800, ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.05);
+                gain.gain.setValueAtTime(0.05, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.05);
+            } else {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(1200, ctx.currentTime);
+                gain.gain.setValueAtTime(0.05, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.03);
+                osc.start();
+                osc.stop(ctx.currentTime + 0.03);
+            }
+        }
+
+        function playAlarm(type) {
+            const ctx = getAudioCtx();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+
+            const createBeep = (freq, start, dur, wavetype = 'square') => {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.type = wavetype;
+                osc.frequency.value = freq;
+                gain.gain.setValueAtTime(0.1, start);
+                gain.gain.linearRampToValueAtTime(0, start + dur);
+                osc.start(start);
+                osc.stop(start + dur);
+            };
+
+            if (type === 'radar') {
+                for (let i = 0; i < 3; i++) createBeep(880, now + i * 0.15, 0.1);
+            } else if (type === 'bell') {
+                createBeep(660, now, 0.6, 'sine');
+                createBeep(550, now + 0.2, 0.8, 'sine');
+            } else {
+                createBeep(440, now, 0.5);
+            }
+        }
+
+        // --- 4. 格式化 ---
+        const pad = (v) => String(v).padStart(2, '0');
+
+        function formatTime(sec) {
+            const h = Math.floor(sec / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = sec % 60;
+            return [h, m, s].map(pad).join(':');
+        }
+
+        // 不足一小时时省略小时位，例如 40:00
+        function formatShort(sec) {
+            const h = Math.floor(sec / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = sec % 60;
+            return h ? `${h}:${pad(m)}:${pad(s)}` : `${pad(m)}:${pad(s)}`;
+        }
+
+        function formatClock(timestamp) {
+            const d = new Date(timestamp);
+            return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+
+        // 例如 "25 分钟"、"1 小时 30 分钟"
+        function describeDuration(sec) {
+            const parts = [];
+            const h = Math.floor(sec / 3600);
+            const m = Math.floor((sec % 3600) / 60);
+            const s = sec % 60;
+            if (h) parts.push(`${h} 小时`);
+            if (m) parts.push(`${m} 分钟`);
+            if (s) parts.push(`${s} 秒`);
+            return parts.join(' ') || '0 秒';
+        }
+
+        // --- 5. 计时器逻辑 ---
+        // 以时间戳为准计算，后台标签页被节流时也不会走慢
+        const initialMs = () => state.mode === 'countdown' ? state.countdownSeconds * 1000 : 0;
+        const limitMs = () => state.settings.limitSeconds * 1000;
+        const hasActiveLimit = () => state.settings.hasLimit && state.settings.limitSeconds > 0;
+
+        function currentMs() {
+            if (state.phase !== 'running') return state.ms;
+            const passed = Date.now() - state.anchorTime;
+            return state.mode === 'countup' ? state.anchorMs + passed : Math.max(0, state.anchorMs - passed);
+        }
+
+        // 倒计时向上取整：设定 25:00 时第一秒显示 25:00，归零即结束
+        function shownSeconds(ms) {
+            return state.mode === 'countup' ? Math.floor(ms / 1000) : Math.ceil(ms / 1000);
+        }
+
+        function reachedEnd(ms) {
+            if (state.mode === 'countdown') return ms <= 0;
+            return hasActiveLimit() && ms >= limitMs();
+        }
+
+        function updateDisplay() {
+            const ms = currentMs();
+            const sec = shownSeconds(ms);
+            timerDisplay.textContent = formatTime(sec);
+
+            // 进度条：倒计时显示剩余比例，正计时显示距上限的进度
+            let fraction = null;
+            if (state.mode === 'countdown') {
+                fraction = state.countdownSeconds ? ms / (state.countdownSeconds * 1000) : 0;
+                progressBar.setAttribute('aria-label', '剩余时间');
+                progressLeft.textContent = `共 ${formatShort(state.countdownSeconds)}`;
+                if (state.phase === 'running') progressRight.textContent = `预计 ${formatClock(Date.now() + ms)} 结束`;
+                else if (state.phase === 'paused') progressRight.textContent = '已暂停';
+                else if (state.phase === 'finished') progressRight.textContent = `${formatClock(state.finishedAt)} 已结束`;
+                else progressRight.textContent = '';
+            } else if (hasActiveLimit()) {
+                fraction = ms / limitMs();
+                progressBar.setAttribute('aria-label', '已用时间');
+                progressLeft.textContent = `上限 ${formatShort(state.settings.limitSeconds)}`;
+                progressRight.textContent = `还剩 ${formatShort(Math.max(0, state.settings.limitSeconds - sec))}`;
+            }
+            progressBlock.hidden = fraction === null;
+            if (fraction !== null) {
+                const percent = Math.round(Math.min(Math.max(fraction, 0), 1) * 1000) / 10;
+                progressFill.style.width = percent + '%';
+                progressBar.setAttribute('aria-valuenow', String(Math.round(percent)));
+            }
+
+            const statusSymbol = state.phase === 'running' ? (state.mode === 'countup' ? '▲' : '▼') : '⏸';
+            document.title = `${statusSymbol} ${formatTime(sec)} - 计时器`;
+        }
+
+        function updateUIState() {
+            const running = state.phase === 'running';
+
+            // 倒计时就绪时显示时长设定，其余情况显示大数字
+            const showSetup = state.mode === 'countdown' && state.phase === 'ready';
+            const setupHadFocus = setupView.contains(document.activeElement);
+            setupView.hidden = !showSetup;
+            displayView.hidden = showSetup;
+            if (!showSetup && setupHadFocus) mainActionBtn.focus();
+
+            mainActionBtn.dataset.variant = running ? 'strong' : 'accent';
+            // SVG 元素没有 hidden 属性，需要直接操作 attribute
+            playIcon.toggleAttribute('hidden', running);
+            pauseIcon.toggleAttribute('hidden', !running);
+            mainActionText.textContent = running ? '暂停' : (state.phase === 'paused' ? '继续' : '开始');
+
+            const labels = {
+                ready: '就绪',
+                running: state.mode === 'countup' ? '正计时中' : '倒计时中',
+                paused: '已暂停',
+                finished: '已结束'
+            };
+            statusBadge.dataset.state = state.phase;
+            statusText.textContent = labels[state.phase];
+
+            modeRadios.forEach(radio => { radio.checked = radio.value === state.mode; });
+            presetButtons.forEach(btn => {
+                btn.setAttribute('aria-pressed', String(Number(btn.dataset.minutes) * 60 === state.countdownSeconds));
+            });
+        }
+
+        function stopTicking() {
+            clearInterval(state.timerInterval);
+            clearTimeout(state.finishTimeout);
+            state.timerInterval = null;
+            state.finishTimeout = null;
+        }
+
+        // 在结束时刻单独安排一次检查，后台标签页里也能准时响铃
+        function scheduleFinish() {
+            clearTimeout(state.finishTimeout);
+            if (state.phase !== 'running') return;
+            const ms = currentMs();
+            let wait = null;
+            if (state.mode === 'countdown') wait = ms;
+            else if (hasActiveLimit()) wait = limitMs() - ms;
+            if (wait !== null) state.finishTimeout = setTimeout(tick, Math.max(0, wait) + 10);
+        }
+
+        function tick() {
+            const ms = currentMs();
+            if (reachedEnd(ms)) {
+                finishTimer();
+                return;
+            }
+            const sec = shownSeconds(ms);
+            if (sec === state.lastSecond) return;
+            state.lastSecond = sec;
+            if (state.settings.tickSound) playTick(state.settings.tickType);
+            // 剩余5秒提示
+            if (state.mode === 'countdown' && state.settings.preWarn && sec <= 5) playTick('elec');
+            updateDisplay();
+        }
+
+        function startTimer() {
+            if (state.phase === 'running') return;
+            if (state.phase === 'finished') resetTimer();
+            if (state.mode === 'countdown' && state.ms <= 0) {
+                setupHint.hidden = false;
+                timeInputs.m.focus();
+                return;
+            }
+            getAudioCtx();
+            state.phase = 'running';
+            state.anchorTime = Date.now();
+            state.anchorMs = state.ms;
+            state.lastSecond = shownSeconds(state.ms);
+            state.timerInterval = setInterval(tick, 200);
+            scheduleFinish();
+            requestWakeLock();
+            updateUIState();
+            updateDisplay();
+        }
+
+        function pauseTimer() {
+            if (state.phase !== 'running') return;
+            state.ms = currentMs();
+            state.phase = 'paused';
+            stopTicking();
+            releaseWakeLock();
+            updateUIState();
+            updateDisplay();
+        }
+
+        function resetTimer() {
+            stopTicking();
+            releaseWakeLock();
+            state.phase = 'ready';
+            state.ms = initialMs();
+            setupHint.hidden = true;
+            updateUIState();
+            updateDisplay();
+        }
+
+        function toggleTimer() {
+            state.phase === 'running' ? pauseTimer() : startTimer();
+        }
+
+        function finishTimer() {
+            stopTicking();
+            releaseWakeLock();
+            state.ms = state.mode === 'countdown' ? 0 : limitMs();
+            state.phase = 'finished';
+            state.finishedAt = Date.now();
+            updateUIState();
+            updateDisplay();
+            notifyFinish();
+
+            if (state.settings.popup) {
+                openFinishScreen();
+            } else {
+                playAlarm(state.settings.alarmSound);
+            }
+        }
+
+        // --- 6. 时间到：全屏提醒 ---
+        let alarmLoop = null;
+        let overtimeLoop = null;
+
+        function updateOvertime() {
+            overtime.textContent = formatShort(Math.floor((Date.now() - state.finishedAt) / 1000));
+        }
+
+        function openFinishScreen() {
+            finishLabel.textContent = state.mode === 'countdown'
+                ? `${describeDuration(state.countdownSeconds)}倒计时`
+                : `正计时 · 上限 ${describeDuration(state.settings.limitSeconds)}`;
+            finishTime.textContent = formatTime(shownSeconds(state.ms));
+            finishAt.textContent = `${formatClock(state.finishedAt)} ${state.mode === 'countdown' ? '结束' : '到达上限'}`;
+            updateOvertime();
+            overtimeLoop = setInterval(updateOvertime, 500);
+
+            // 提示音循环播放，直到手动关闭
+            playAlarm(state.settings.alarmSound);
+            alarmLoop = setInterval(() => playAlarm(state.settings.alarmSound), 2000);
+
+            closeSheet();
+            finishScreen.classList.add('open');
+            appShell.inert = true;
+            dismissBtn.focus();
+        }
+
+        function closeFinishScreen() {
+            clearInterval(alarmLoop);
+            clearInterval(overtimeLoop);
+            finishScreen.classList.remove('open');
+            appShell.inert = false;
+        }
+
+        function dismissFinish() {
+            closeFinishScreen();
+            resetTimer();
+            mainActionBtn.focus();
+        }
+
+        restartBtn.addEventListener('click', () => {
+            closeFinishScreen();
+            resetTimer();
+            startTimer();
+            mainActionBtn.focus();
+        });
+        dismissBtn.addEventListener('click', dismissFinish);
+
+        function notifyFinish() {
+            if (!state.settings.notify || !('Notification' in window) || Notification.permission !== 'granted') return;
+            if (document.visibilityState === 'visible') return;
+            const body = state.mode === 'countdown'
+                ? `${describeDuration(state.countdownSeconds)}倒计时已结束`
+                : `正计时已到达上限 ${formatShort(state.settings.limitSeconds)}`;
+            try {
+                new Notification('时间到', { body, tag: 'ticktool' });
+            } catch (e) { /* 部分移动端浏览器只允许通过 Service Worker 发送通知 */ }
+        }
+
+        // --- 7. 屏幕常亮 (Wake Lock API) ---
+        let wakeLock = null;
+
+        async function requestWakeLock() {
+            if (!state.settings.keepAwake || !('wakeLock' in navigator) || wakeLock) return;
+            try {
+                const lock = await navigator.wakeLock.request('screen');
+                if (state.phase !== 'running' || !state.settings.keepAwake) {
+                    lock.release();
+                    return;
+                }
+                wakeLock = lock;
+                wakeLock.addEventListener('release', () => { wakeLock = null; });
+            } catch (e) {
+                wakeLock = null;
+            }
+        }
+
+        function releaseWakeLock() {
+            if (!wakeLock) return;
+            wakeLock.release().catch(() => {});
+            wakeLock = null;
+        }
+
+        // 切回页面时：系统会自动释放常亮，需要重新申请；同时立即刷新时间
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && state.phase === 'running') {
+                requestWakeLock();
+                tick();
+            }
+        });
+
+        // --- 8. 倒计时设定交互 ---
+        const SETUP_MAX = { h: 99, m: 59, s: 59 };
+
+        function readFields(inputs) {
+            const value = (k) => Math.min(parseInt(inputs[k].value, 10) || 0, SETUP_MAX[k]);
+            return value('h') * 3600 + value('m') * 60 + value('s');
+        }
+
+        function writeSetupInputs(sec) {
+            timeInputs.h.value = pad(Math.floor(sec / 3600));
+            timeInputs.m.value = pad(Math.floor((sec % 3600) / 60));
+            timeInputs.s.value = pad(sec % 60);
+        }
+
+        function setCountdown(sec) {
+            state.countdownSeconds = sec;
+            if (state.mode === 'countdown' && state.phase === 'ready') state.ms = sec * 1000;
+            setupHint.hidden = true;
+            save();
+            updateUIState();
+            updateDisplay();
+        }
+
+        Object.values(timeInputs).forEach(input => {
+            input.addEventListener('focus', () => requestAnimationFrame(() => input.select()));
+            input.addEventListener('input', () => {
+                input.value = input.value.replace(/\D/g, '').slice(0, 2);
+                setCountdown(readFields(timeInputs));
+            });
+            // 失焦时补零并修正超出范围的值
+            input.addEventListener('blur', () => writeSetupInputs(state.countdownSeconds));
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    startTimer();
+                }
+            });
+        });
+
+        presetButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const sec = Number(btn.dataset.minutes) * 60;
+                writeSetupInputs(sec);
+                setCountdown(sec);
+            });
+        });
+
+        // 模式切换
+        modeRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                state.mode = e.target.value;
+                save();
+                resetTimer();
+            });
+        });
+
+        // --- 9. 设置面板交互 ---
+        function openSheet() {
+            sheetOverlay.classList.add('open');
+            settingsSheet.classList.add('open');
+            appShell.inert = true;
+            closeSheetBtn.focus();
+        }
+
+        function closeSheet() {
+            if (!settingsSheet.classList.contains('open')) return;
+            sheetOverlay.classList.remove('open');
+            settingsSheet.classList.remove('open');
+            appShell.inert = false;
+            settingsBtn.focus();
+        }
+
+        settingsBtn.addEventListener('click', openSheet);
+        closeSheetBtn.addEventListener('click', closeSheet);
+        sheetOverlay.addEventListener('click', closeSheet);
+
+        // 主题切换
+        function applyTheme(theme) {
+            if (!THEMES.includes(theme)) theme = DEFAULT_SETTINGS.theme;
+            state.settings.theme = theme;
+            document.documentElement.dataset.theme = theme;
+            themeRadios.forEach(radio => { radio.checked = radio.value === theme; });
+        }
+        themeRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                applyTheme(e.target.value);
+                save();
+            });
+        });
+
+        // 数字大小：自动随宽度缩放，或手动指定像素
+        function applyFontSize() {
+            const size = state.settings.fontSize;
+            sizeRadios.forEach(radio => { radio.checked = radio.value === (size ? 'manual' : 'auto'); });
+            sizeSliderRow.hidden = !size;
+            timerDisplay.style.fontSize = size ? size + 'px' : '';
+            if (size) {
+                fontSizeSlider.value = size;
+                fontSizeValue.textContent = size + 'px';
+            }
+        }
+        sizeRadios.forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                state.settings.fontSize = e.target.value === 'manual' ? Number(fontSizeSlider.value) : 0;
+                applyFontSize();
+                save();
+            });
+        });
+        fontSizeSlider.addEventListener('input', () => {
+            state.settings.fontSize = Number(fontSizeSlider.value);
+            applyFontSize();
+            save();
+        });
+
+        // 开关与下拉框
+        function bindToggle(id, key, onChange) {
+            const el = document.getElementById(id);
+            el.checked = state.settings[key];
+            el.addEventListener('change', () => {
+                state.settings[key] = el.checked;
+                save();
+                if (onChange) onChange();
+            });
+        }
+        function bindSelect(id, key) {
+            const el = document.getElementById(id);
+            el.value = state.settings[key];
+            el.addEventListener('change', () => {
+                state.settings[key] = el.value;
+                save();
+            });
+        }
+        bindToggle('tickSoundToggle', 'tickSound');
+        bindToggle('preWarnToggle', 'preWarn');
+        bindToggle('popupToggle', 'popup');
+        bindToggle('keepAwakeToggle', 'keepAwake', () => {
+            if (state.settings.keepAwake && state.phase === 'running') requestWakeLock();
+            else releaseWakeLock();
+        });
+        bindSelect('tickTypeSelect', 'tickType');
+        bindSelect('alarmSoundSelect', 'alarmSound');
+        document.getElementById('testAlarmBtn').addEventListener('click', () => playAlarm(state.settings.alarmSound));
+
+        if (!('wakeLock' in navigator)) {
+            keepAwakeToggle.checked = false;
+            keepAwakeToggle.disabled = true;
+            keepAwakeHint.hidden = false;
+        }
+
+        // 系统通知：开启时申请权限
+        if (!('Notification' in window)) {
+            notifyToggle.checked = false;
+            notifyToggle.disabled = true;
+            notifyHint.textContent = '当前浏览器不支持';
+        } else {
+            notifyToggle.checked = state.settings.notify && Notification.permission === 'granted';
+            notifyToggle.addEventListener('change', async () => {
+                if (notifyToggle.checked && Notification.permission !== 'granted') {
+                    const result = await Notification.requestPermission();
+                    if (result !== 'granted') {
+                        notifyToggle.checked = false;
+                        notifyHint.textContent = '浏览器未授予通知权限';
+                    }
+                }
+                state.settings.notify = notifyToggle.checked;
+                save();
+            });
+        }
+
+        // 正计时上限
+        function writeLimitInputs() {
+            const sec = state.settings.limitSeconds;
+            limitInputs.h.value = Math.floor(sec / 3600);
+            limitInputs.m.value = Math.floor((sec % 3600) / 60);
+            limitInputs.s.value = sec % 60;
+        }
+        function afterLimitChange() {
+            save();
+            if (state.mode === 'countup') {
+                scheduleFinish();
+                updateDisplay();
+                if (state.phase === 'running') tick();
+            }
+        }
+        limitToggle.checked = state.settings.hasLimit;
+        limitFields.disabled = !state.settings.hasLimit;
+        limitToggle.addEventListener('change', () => {
+            state.settings.hasLimit = limitToggle.checked;
+            limitFields.disabled = !limitToggle.checked;
+            afterLimitChange();
+        });
+        Object.values(limitInputs).forEach(input => {
+            input.addEventListener('input', () => {
+                input.value = input.value.replace(/\D/g, '').slice(0, 2);
+            });
+            // 输入完成后再生效，避免输入到一半就触发上限
+            input.addEventListener('change', () => {
+                state.settings.limitSeconds = readFields(limitInputs);
+                writeLimitInputs();
+                afterLimitChange();
+            });
+        });
+
+        // --- 10. 全屏 ---
+        function toggleFullscreen() {
+            if (!document.fullscreenEnabled) return;
+            if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+            else document.documentElement.requestFullscreen().catch(() => {});
+        }
+        if (!document.fullscreenEnabled) {
+            fullscreenBtn.hidden = true;
+            fullscreenHint.hidden = true;
+        }
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
+        document.addEventListener('fullscreenchange', () => {
+            const on = Boolean(document.fullscreenElement);
+            fullscreenBtn.setAttribute('aria-label', on ? '退出全屏' : '全屏显示');
+            document.getElementById('fsEnterIcon').toggleAttribute('hidden', on);
+            document.getElementById('fsExitIcon').toggleAttribute('hidden', !on);
+        });
+
+        // --- 11. 全局按钮与快捷键 ---
+        mainActionBtn.addEventListener('click', toggleTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        const isOverlayOpen = () => settingsSheet.classList.contains('open') || finishScreen.classList.contains('open');
+        const isTyping = (el) => el.matches('input:not([type="radio"]):not([type="checkbox"]), select, textarea');
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (finishScreen.classList.contains('open')) dismissFinish();
+                else closeSheet();
+                return;
+            }
+            if (isOverlayOpen() || e.ctrlKey || e.metaKey || e.altKey || isTyping(e.target)) return;
+
+            if (e.code === 'Space') {
+                e.preventDefault();
+                if (!e.repeat) toggleTimer();
+            } else if (e.code === 'KeyR' && !e.repeat) {
+                resetTimer();
+            } else if (e.code === 'KeyF' && !e.repeat) {
+                toggleFullscreen();
+            }
+        });
+        // 焦点在按钮上时，空格松开会再触发一次点击，这里拦截
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'Space' && !isOverlayOpen() && !isTyping(e.target)) e.preventDefault();
+        });
+
+        // 初始化
+        applyTheme(state.settings.theme);
+        applyFontSize();
+        writeSetupInputs(state.countdownSeconds);
+        writeLimitInputs();
+        state.ms = initialMs();
+        updateUIState();
+        updateDisplay();
+    </script>
+</body>
+</html>
